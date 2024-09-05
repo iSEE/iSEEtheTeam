@@ -1,0 +1,9 @@
+inst/doc
+*~
+.Rproj.user
+*Rproj
+renv/
+renv.lock
+.Rprofile
+docs/
+.DS_Store

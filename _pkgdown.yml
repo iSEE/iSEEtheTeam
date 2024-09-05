@@ -1,0 +1,18 @@
+url: https://isee.github.io/iSEEDemoEuroBioC2024/
+
+template:
+  params:
+    bootswatch: flatly
+    #ganalytics: UA-99999999-9
+
+home:
+  title: "iSEEDemoEuroBioC2024"
+  type: inverse
+
+
+navbar:
+  right:
+   - icon: fa-github
+     href: https://github.com/iSEE/iSEEDemoEuroBioC2024
+     
+

@@ -1,0 +1,798 @@
+---
+title: "Writing iSEE extensions"
+author: Kevin Rue-Albrecht^[kevinrue67@gmail.com], Federico Marini^[marinif@uni-mainz.de], Charlotte Soneson^[charlottesoneson@gmail.com]
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Writing iSEE extensions}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+## Track time spent on making the vignette
+startTime <- Sys.time()
+## knitr options
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+## load now due to unevaluated code below
+library(iSEE)
+```
+
+Last modified: 09 July, 2024.
+
+## Overview
+
+### Description
+
+This package demo will present a brief introduction to the functionality of the `r BiocStyle::Biocpkg("iSEE")` package and its existing extension packages, before demonstrating the writing of new functionality suitable for release in additional extension packages.
+
+### Pre-requisites {#prerequisites}
+
+Workshop prerequisites:
+
+* Familiarity with the `r BiocStyle::Biocpkg("SummarizedExperiment")` class.
+* Familiarity with the `r BiocStyle::CRANpkg("shiny")` package
+
+Relevant background reading:
+
+* EuroBioC2023 workshop:
+  [materials](https://isee.github.io/iSEEDemoEuroBioC2023/articles/iSEEdemo.html)
+* EuroBioC2020 workshop: 
+  [materials](https://isee.github.io/iSEEWorkshopEuroBioc2020/),
+  [slides](https://isee.github.io/iSEEWorkshopEuroBioc2020Slides/)
+* BioC2020 workshop: 
+  [materials](https://isee.github.io/iSEEWorkshop2020/),
+  [slides](https://isee.github.io/iSEEWorkshop2020Slides/)
+* BioC2019 workshop:
+  [materials](https://isee.github.io/iSEEWorkshop2019/),
+  [slides](https://isee.github.io/iSEEWorkshop2019Slides/)
+* Rue-Albrecht K, Marini F, Soneson C and Lun ATL.
+  iSEE: Interactive SummarizedExperiment Explorer [version 1; peer review: 3 approved]. F1000Research 2018, 7:741
+  (https://doi.org/10.12688/f1000research.14966.1)
+* Vignette: [SummarizedExperiment for Coordinating Experimental Assays, Samples, and Regions of Interest](https://bioconductor.org/packages/release/bioc/vignettes/SummarizedExperiment/inst/doc/SummarizedExperiment.html#anatomy-of-a-summarizedexperiment)
+
+### Participation
+
+Students are encouraged to ask questions throughout the package demo.
+
+Where applicable, instructors will illustrate answers with live-coded examples.
+
+Alternatively, students are also encouraged to write questions before, during, and after the workshop using the 'New issue' button on the GitHub repository for this workshop (https://github.com/iSEE/iSEEDemoEuroBioC2024/issues).
+
+Instructors will respond to GitHub issues at the earliest opportunity, which may be after the end of the conference.
+
+### _R_ / _Bioconductor_ packages used
+
+* `r BiocStyle::Biocpkg("iSEE")`
+* `r BiocStyle::Biocpkg("iSEEde")`
+* `r BiocStyle::Biocpkg("iSEEhex")`
+* `r BiocStyle::Biocpkg("iSEEhub")`
+* `r BiocStyle::Biocpkg("iSEEindex")`
+* `r BiocStyle::Biocpkg("iSEEpathways")`
+* `r BiocStyle::Biocpkg("iSEEu")`
+
+### Time outline
+
+An example for a 40-minute workshop:
+
+| Activity                     | Time |
+|------------------------------|------|
+| iSEE functionality           | 10m  |
+| Existing iSEE extensions     | 10m  |
+| Writing iSEE extensions      | 10m  |
+| Questions                    | 10m  |
+
+### Workshop goals and objectives
+
+### Learning goals
+
+* Describe how to interactively explore omics data using `r BiocStyle::Biocpkg("iSEE")`.
+* Identify extension packages adding functionality to the `r BiocStyle::Biocpkg("iSEE")` interface.
+* Understand what is needed to write `r BiocStyle::Biocpkg("iSEE")` extensions.
+
+### Learning objectives
+
+* Launch `r BiocStyle::Biocpkg("iSEE")` applications to visualise examples data sets.
+* Configure `r BiocStyle::Biocpkg("iSEE")` applications to use functionality from extension packages.
+* Create and include a new `r BiocStyle::Biocpkg("iSEE")` panel in a live application.
+
+## iSEE functionality
+
+### Overview
+
+In the next 10 minutes, we will:
+
+* Load a demonstration data set
+* Launch an iSEE app in its default state
+* Export an R script representing a modified app state
+* Re-launch the same iSEE app preconfigured in that modified state
+
+### Input data
+
+`r BiocStyle::Biocpkg("iSEE")` was designed around the `r BiocStyle::Biocpkg("SummarizedExperiment")` class, a container widely used throughout the *Bioconductor* project.
+
+Briefly, the `r BiocStyle::Biocpkg("SummarizedExperiment")` class provides a container keeping matrices of assay data, sample metadata, and feature metadata synchronised throughout analytical workflows (e.g., filtering, reordering).
+
+![SummarizedExperiment (reproduced from the package vignette; <https://bioconductor.org/packages/SummarizedExperiment/>).](img/SummarizedExperiment.svg)
+
+<br/>
+
+By extension, `r BiocStyle::Biocpkg("iSEE")` naturally supports classes derived from `r BiocStyle::Biocpkg("SummarizedExperiment")`.
+For instance, the `r BiocStyle::Biocpkg("SingleCellExperiment")` class adds functionality for storing matrices of reduced dimensions, also keeping those synchronised with assay data and metadata during analyses.
+
+In practice, you would generally create a `r BiocStyle::Biocpkg("SummarizedExperiment")` (or derived) object from raw data and metadata loaded from files (e.g., RNA-seq count matrix produce by a program like [featureCounts](https://doi.org/10.1093/bioinformatics/btt656) and sample metadata from your lab notebook).
+
+`r fontawesome::fa("circle-info")` You can learn about the creation and handling of `SummarizedExperiment` objects in the [Relevant background reading](#prerequisites) resources above.
+
+In this workshop, we will load a publicly available `r BiocStyle::Biocpkg("SingleCellExperiment ")` object to save some time.
+
+```{r, message=FALSE, warning=FALSE}
+library(scRNAseq)
+sce <- ReprocessedAllenData(assays="tophat_counts")
+sce
+```
+
+In the summary view of the object displayed above, we can tell that it contains:
+
+* One assay called `tophat_counts`, a matrix measuring 20,816 genes in 379 cells.
+* Twenty two columns of cell metadata.
+* No gene metadata.
+
+Also of note:
+
+* Gene symbols are in use for the row names.
+* Arbitrary cell names are in use for column names.
+* Some object-level metadata is present.
+* An alternative experiment called `ERCC` is present (we will not use it).
+
+### Getting started with iSEE
+
+One of the strengths of `r BiocStyle::Biocpkg("iSEE")` is that it can be used at any point in an analytical workflow.
+From the moment raw data or metadata are encapsulated in a `r BiocStyle::Biocpkg("SummarizedExperiment")` object, they're good to go!
+
+Let's demonstrate this by attaching the `r BiocStyle::Biocpkg("iSEE")` package to the R session and calling the `iSEE()` function to launch an app in the default settings.
+
+```{r, message=FALSE, warning=FALSE, eval=FALSE}
+library(iSEE)
+library(shiny)
+app <- iSEE(sce)
+runApp(app, launch.browser = TRUE)
+```
+
+![Screenshot of iSEE app.](img/iSEE_default.png)
+
+<br/>
+
+In the screenshot above, you will notice that some of the panels seem to be truncated at the bottom.
+
+`r BiocStyle::Biocpkg("iSEE")` applications organise panels along a single-page layout.
+Following `r BiocStyle::CRANpkg("shiny")` rules, pages are divided into 12 units horizontally, allowing up to 12 panels on a row before new rows are added to accommodate more panels.
+Depending on the size and set-up of your monitors, you may comfortably fit a considerable number of panels in your own screen estate.
+
+By default, `r BiocStyle::Biocpkg("iSEE")` applications adopt a "showcase" mode that populates the application with one panel of each type compatible with the assay data and metadata detected in the input object.
+
+As such, in the screenshot above, we see at least:
+
+* A 'Row data table' panel, displaying gene metadata.
+* A 'Feature assay plot' panel, displaying assayed data for a gene.
+* A 'Column data plot' panel, displaying a column of cell metadata.
+* A 'Sample assay plot' panel, displaying assayed data for a sample.
+* A 'Column data table' panel, displaying cell metadata.
+* A 'Complex heatmap' panel, displaying assayed data for a set of genes.
+
+### Core iSEE functionality
+
+Within `r BiocStyle::Biocpkg("iSEE")` applications, users can interactively:
+
+* View tables of metadata, filtering rows, and selecting a single row that may be highlighted in other panels.
+* View plots of assay data and metadata, controlling data displayed along each axis, as well as visual aspects such as colour, shape, size, and faceting, using any suitable data or metadata present in the input object.
+* Draw selections in plots using the built-in rectangular `r BiocStyle::CRANpkg("shiny")` brush or the slower but more flexible lasso selection implemented in `r BiocStyle::Biocpkg("iSEE")`.
+* Transmit selection between panels, dynamically controlling which panels receive information from which panels.
+* Use transmitted selections to highlight or restrict the corresponding data points in the receiving panel(s).
+* Rearrange the layout of panels, adding, removing, or reordering panels at will.
+* Resize the panels, in width and height.
+
+Furthermore, you will also find functionality for:
+
+* Downloading the panel outputs: in PDF format for plots, and CSV format for tables.
+* Exporting an R script that reproduces exactly each panel output, including brushes and downstream effects related to transmitted selections.
+* Exporting an R script that reproduces exactly the current layout of the application.
+* Launching custom interactive tours introducing new users to the various components of the application.
+* Opening the vignette of the `r BiocStyle::Biocpkg("iSEE")` package without leaving the application.
+* Inspecting the session information.
+* Learning more about iSEE, including how to cite it.
+* Inspecting the overall object metadata (converted to JSON format).
+
+To simulate a short analytical workflow, let us run some more code from the `?iSEE` help page to:
+
+* Compute a normalised count matrix.
+* Compute a PCA.
+* Compute a t-SNE.
+* Compute some simple gene metadata.
+
+```{r, message=FALSE, warning=FALSE}
+library(scater)
+library(scuttle)
+sce <- logNormCounts(sce, exprs_values="tophat_counts")
+
+sce <- runPCA(sce, ncomponents=4)
+sce <- runTSNE(sce)
+rowData(sce)$ave_count <- rowMeans(assay(sce, "tophat_counts"))
+rowData(sce)$n_cells <- rowSums(assay(sce, "tophat_counts") > 0)
+sce
+```
+
+Then, as pointed out earlier, you are free to launch another `r BiocStyle::Biocpkg("iSEE")` app again at any point in an analytical workflow.
+
+The `iSEE()` function automatically detects new assay data and metadata in the updated object, populating the application components with all the available information, old and new.
+
+```{r, message=FALSE, warning=FALSE, eval=FALSE}
+app <- iSEE(sce)
+runApp(app, launch.browser = TRUE)
+```
+
+![Screenshot of iSEE app.](img/iSEE_default_2.png)
+
+<br/>
+
+Comparing the screenshot above with the earlier one, you will notice that the first panel is now a 'Reduced dimension plot' panel, and that all other panels have shifted position down in the order of the layout (top to bottom, left to right).
+
+Indeed, the last time we launched the app, the object did not contain any dimensionality reduction result.
+The `iSEE()` function automatically detected that, and dropped that type of panel from the application.
+
+To demonstrate the next functionality, let us interactively (within the app launched above) remove all the panels except for 'Reduced dimension plot 1' and 'Feature assay plot 1'.
+Then, use the download icon in the navigation bar at the top of the app to find and click the 'Display panel settings' button.
+You will be presented with an R script that looks as follows:
+
+```{r}
+initial <- list()
+
+################################################################################
+# Settings for Reduced dimension plot 1
+################################################################################
+
+initial[["ReducedDimensionPlot1"]] <- new("ReducedDimensionPlot", Type = "PCA", XAxis = 1L, YAxis = 2L, 
+    FacetRowByColData = "driver_1_s", FacetColumnByColData = "driver_1_s", 
+    ColorByColumnData = "NREADS", ColorByFeatureNameAssay = "logcounts", 
+    ColorBySampleNameColor = "#FF0000", ShapeByColumnData = "driver_1_s", 
+    SizeByColumnData = "NREADS", TooltipColumnData = character(0), 
+    FacetRowBy = "None", FacetColumnBy = "None", ColorBy = "None", 
+    ColorByDefaultColor = "#000000", ColorByFeatureName = "0610007P14Rik", 
+    ColorByFeatureSource = "---", ColorByFeatureDynamicSource = FALSE, 
+    ColorBySampleName = "SRR2140028", ColorBySampleSource = "---", 
+    ColorBySampleDynamicSource = FALSE, ShapeBy = "None", SizeBy = "None", 
+    SelectionAlpha = 0.1, ZoomData = numeric(0), BrushData = list(), 
+    VisualBoxOpen = FALSE, VisualChoices = "Color", ContourAdd = FALSE, 
+    ContourColor = "#0000FF", PointSize = 1, PointAlpha = 1, 
+    Downsample = FALSE, DownsampleResolution = 200, CustomLabels = FALSE, 
+    CustomLabelsText = "SRR2140028", FontSize = 1, LegendPointSize = 1, 
+    LegendPosition = "Bottom", HoverInfo = TRUE, LabelCenters = FALSE, 
+    LabelCentersBy = "driver_1_s", LabelCentersColor = "#000000", 
+    VersionInfo = list(iSEE = structure(list(c(2L, 17L, 1L)), class = c("package_version", 
+    "numeric_version"))), PanelId = c(ReducedDimensionPlot = 1L), 
+    PanelHeight = 500L, PanelWidth = 4L, SelectionBoxOpen = FALSE, 
+    RowSelectionSource = "---", ColumnSelectionSource = "---", 
+    DataBoxOpen = FALSE, RowSelectionDynamicSource = FALSE, ColumnSelectionDynamicSource = FALSE, 
+    RowSelectionRestrict = FALSE, ColumnSelectionRestrict = FALSE, 
+    SelectionHistory = list())
+
+################################################################################
+# Settings for Feature assay plot 1
+################################################################################
+
+initial[["FeatureAssayPlot1"]] <- new("FeatureAssayPlot", Assay = "logcounts", XAxis = "None", 
+    XAxisColumnData = "NREADS", XAxisFeatureName = "0610007P14Rik", 
+    XAxisFeatureSource = "---", XAxisFeatureDynamicSource = FALSE, 
+    YAxisFeatureName = "0610007P14Rik", YAxisFeatureSource = "---", 
+    YAxisFeatureDynamicSource = FALSE, FacetRowByColData = "driver_1_s", 
+    FacetColumnByColData = "driver_1_s", ColorByColumnData = "NREADS", 
+    ColorByFeatureNameAssay = "logcounts", ColorBySampleNameColor = "#FF0000", 
+    ShapeByColumnData = "driver_1_s", SizeByColumnData = "NREADS", 
+    TooltipColumnData = character(0), FacetRowBy = "None", FacetColumnBy = "None", 
+    ColorBy = "None", ColorByDefaultColor = "#000000", ColorByFeatureName = "0610007P14Rik", 
+    ColorByFeatureSource = "---", ColorByFeatureDynamicSource = FALSE, 
+    ColorBySampleName = "SRR2140028", ColorBySampleSource = "---", 
+    ColorBySampleDynamicSource = FALSE, ShapeBy = "None", SizeBy = "None", 
+    SelectionAlpha = 0.1, ZoomData = numeric(0), BrushData = list(), 
+    VisualBoxOpen = FALSE, VisualChoices = "Color", ContourAdd = FALSE, 
+    ContourColor = "#0000FF", PointSize = 1, PointAlpha = 1, 
+    Downsample = FALSE, DownsampleResolution = 200, CustomLabels = FALSE, 
+    CustomLabelsText = "SRR2140028", FontSize = 1, LegendPointSize = 1, 
+    LegendPosition = "Bottom", HoverInfo = TRUE, LabelCenters = FALSE, 
+    LabelCentersBy = "driver_1_s", LabelCentersColor = "#000000", 
+    VersionInfo = list(iSEE = structure(list(c(2L, 17L, 1L)), class = c("package_version", 
+    "numeric_version"))), PanelId = c(FeatureAssayPlot = 1L), 
+    PanelHeight = 500L, PanelWidth = 4L, SelectionBoxOpen = FALSE, 
+    RowSelectionSource = "---", ColumnSelectionSource = "---", 
+    DataBoxOpen = FALSE, RowSelectionDynamicSource = FALSE, ColumnSelectionDynamicSource = FALSE, 
+    RowSelectionRestrict = FALSE, ColumnSelectionRestrict = FALSE, 
+    SelectionHistory = list())
+```
+
+The above R script creates an object called `initial` that contains all the information necessary for the `iSEE()` function to launch an app in a specific initial state.
+
+All we need to do is:
+
+* Run that R script, to create the `initial` object that represents the initial state of the app
+* Pass this `initial` object to the `initial=` argument of the `iSEE()` function, to launch a new app in the desired initial state
+
+```{r, message=FALSE, warning=FALSE, eval=FALSE}
+app <- iSEE(sce, initial = initial)
+runApp(app, launch.browser = TRUE)
+```
+
+![Screenshot of iSEE app launched in a predefined initial configuration.](img/iSEE_initial.png)
+
+<br/>
+
+`r fontawesome::fa("circle-info")` It is useful to note that it is not always necessary to copy-paste R scripts from within the app.
+
+With experience, users can learn to write short scripts from scratch.
+For instance, the same initial state illustrated above can be achieved using the following script:
+
+```{r}
+initial <- list(
+  ReducedDimensionPlot(),
+  FeatureAssayPlot()
+)
+```
+
+`r fontawesome::fa("triangle-exclamation")` Note that any setting not specified in the R script will be set to a default value that might change in the future.
+The full R scripts reported by the app ensure complete reproducibility.
+
+## Existing iSEE extensions
+
+## Overview
+
+In the next 10 minutes, we will:
+
+* Load and preprocess a new demonstration data set
+* Launch an iSEE app that includes panels implemented in extension packages
+
+### iSEE extension packages
+
+| Package | Purpose                                          |
+|:--------|:-------------------------------------------------|
+| [iSEE](https://github.com/iSEE/iSEE) | Core functionality. |
+| [iSEEde](https://github.com/iSEE/iSEEde) | Extension for differential expression analysis. |
+| [iSEEhex](https://github.com/iSEE/iSEEhex) | Extension for summarisation into hexagonal bins. |
+| [iSEEhub](https://github.com/iSEE/iSEEhub) | Extension for access to the Bioconductor `r BiocStyle::Biocpkg("ExperimentHub")`. |
+| [iSEEindex](https://github.com/iSEE/iSEEindex) | Extension for access to custom collectins of local and remote data sets. |
+| [iSEEpathways](https://github.com/iSEE/iSEEpathways) | Extension for pathway analysis. |
+| [iSEEu](https://github.com/iSEE/iSEEu) | The 'iSEE universe': Extension for miscellaneous and experimental functionality. |
+
+In this package demo, we will showcase `r BiocStyle::Biocpkg("iSEEde")` and `r BiocStyle::Biocpkg("iSEEpathways")`.
+
+### Input data
+
+#### Load data
+
+The `r BiocStyle::Biocpkg("iSEEpathways")` vignette [Integration with other panels](https://isee.github.io/iSEEpathways/articles/integration.html) can also be accessed locally using the R code `vignette("integration", package = "iSEEpathways")`.
+
+In this part, we load the `r BiocStyle::Biocexptpkg("airway")` package, providing a `RangedSummarizedExperiment` object for RNA-Seq in airway smooth muscle cells.
+
+```{r}
+library(airway)
+data(airway)
+airway
+```
+
+#### Clean up factor levels
+
+We quickly reorder the levels of the dexamethasone treatment, ensuring that the untreated level is first, and used as reference level during the upcoming differential expression analysis.
+
+```{r}
+airway$dex <- relevel(airway$dex, "untrt")
+```
+
+#### Convert gene identifiers to gene symbols
+
+We also take a minute to convert rownames to more recognisable gene symbols using the annotation package `r BiocStyle::Biocannopkg("org.Hs.eg.db")`.
+
+To avoid losing any information, we store a copy of the original Ensembl gene identifiers and the corresponding gene symbols in the row metadata.
+
+To make sure that rownames are unique, we use the `r BiocStyle::Biocpkg("scuttle")` function `uniquifyFeatureNames()`.
+The function uses the gene symbol if unique; otherwise it combines it with the Ensembl gene identifier to make it unique.
+
+```{r, message=FALSE, warning=FALSE}
+library("org.Hs.eg.db")
+library("scuttle")
+rowData(airway)[["ENSEMBL"]] <- rownames(airway)
+rowData(airway)[["SYMBOL"]] <- mapIds(org.Hs.eg.db, rownames(airway), "SYMBOL", "ENSEMBL")
+rowData(airway)[["uniquifyFeatureNames"]] <- uniquifyFeatureNames(
+  ID = rowData(airway)[["ENSEMBL"]],
+  names = rowData(airway)[["SYMBOL"]]
+)
+rownames(airway) <- rowData(airway)[["uniquifyFeatureNames"]]
+```
+
+#### Differential gene expression analysis
+
+We run a standard `r BiocStyle::Biocpkg("DESeq2")` analysis.
+
+```{r, message=FALSE, warning=FALSE}
+library(DESeq2)
+dds <- DESeqDataSet(airway, ~ 0 + dex + cell)
+dds <- DESeq(dds)
+res_deseq2 <- results(dds, contrast = list("dextrt", "dexuntrt"))
+head(res_deseq2)
+```
+
+We embed the results of the `r BiocStyle::Biocpkg("DESeq2")` analysis within the `airway` object using the `r BiocStyle::Biocpkg("iSEEde")` function `embedContrastResults()`.
+
+The function embeds the results in a structured way makes them detectable by the `iSEE()` function, and gives the possibility to store multiple differential expression results -- possibly from multiple methods such as `r BiocStyle::Biocpkg("edgeR")` and `r BiocStyle::Biocpkg("limma")` -- under different names.
+
+```{r, message=FALSE, warning=FALSE}
+library(iSEEde)
+airway <- embedContrastResults(res_deseq2, airway, name = "dex: trt vs untrt")
+airway
+```
+
+#### Pathway analysis
+
+We prepare Gene Ontology gene sets of biological pathways using `r BiocStyle::Biocannopkg("org.Hs.eg.db")`.
+
+Due to the use of `uniquifyFeatureNames()` above, we must first map pathway identifiers to the unique Ensembl gene identifier, to accurately perform pathway analysis using the feature identifiers matching those of the embedded differential expression results.
+
+```{r, message=FALSE, warning=FALSE}
+library("org.Hs.eg.db")
+pathways <- select(org.Hs.eg.db, head(keys(org.Hs.eg.db, "GOALL"), 100), c("ENSEMBL"), keytype = "GOALL")
+pathways <- subset(pathways, ONTOLOGYALL == "BP")
+pathways <- unique(pathways[, c("ENSEMBL", "GOALL")])
+pathways <- merge(pathways, rowData(airway)[, c("ENSEMBL", "uniquifyFeatureNames")])
+pathways <- split(pathways$uniquifyFeatureNames, pathways$GOALL)
+```
+
+We can then run a standard `r BiocStyle::Biocpkg("fgsea")` analysis.
+
+In this case, we rank genes using the log2 fold-change computed during the differential expression analysis.
+The `r BiocStyle::Biocpkg("iSEEde")` function `log2FoldChange()` is a convenient method to fetch this information as a named vector in a format immediately compatible with the `fgsea()` function.
+The `r BiocStyle::Biocpkg("iSEEde")` function `contrastResults()` is used to fetch embedded results by name.
+
+```{r}
+library("fgsea")
+set.seed(42)
+stats <- na.omit(log2FoldChange(contrastResults(airway, "dex: trt vs untrt")))
+fgseaRes <- fgsea(pathways = pathways, 
+                  stats    = stats,
+                  minSize  = 15,
+                  maxSize  = 500)
+head(fgseaRes[order(pval), ])
+```
+
+Similarly to the differential expression analysis, we embed the results of the `r BiocStyle::Biocpkg("DESeq2")` analysis within the `airway` object, this time using the `r BiocStyle::Biocpkg("iSEEpathways")` function `embedPathwaysResults()`.
+
+```{r}
+library("iSEEpathways")
+fgseaRes <- fgseaRes[order(pval), ]
+airway <- embedPathwaysResults(
+  fgseaRes, airway, name = "fgsea (p-value)", class = "fgsea",
+  pathwayType = "GO", pathwaysList = pathways, featuresStats = stats)
+airway
+```
+
+#### Mapping pathways to genes
+
+Separately, it is necessary to define and register a function that fetches the gene identifiers associated with a given pathway identifier.
+This function is required to transmit selections from pathway-level panels to feature-level panels.
+
+Due to the use of `uniquifyFeatureNames()` above, the function must first map to the unique Ensembl gene identifier, to accurately identify the corresponding value in `rownames(airway)`.
+
+```{r}
+map_GO <- function(pathway_id, se) {
+  pathway_ensembl <- mapIds(org.Hs.eg.db, pathway_id, "ENSEMBL", keytype = "GOALL", multiVals = "CharacterList")[[pathway_id]]
+  pathway_rownames <- rownames(se)[rowData(se)[["gene_id"]] %in% pathway_ensembl]
+  pathway_rownames
+}
+airway <- registerAppOptions(airway, Pathways.map.functions = list(GO = map_GO))
+```
+
+#### Add normalised gene expression
+
+We also compute log-transformed counts, for a better visualisation of differential expression in the live app.
+
+```{r}
+library("scuttle")
+airway <- logNormCounts(airway)
+```
+
+### Live app
+
+Finally, we can preconfigure the initial state of an app that immediately links panels to one another.
+
+```{r, message=FALSE, warning=FALSE, eval=FALSE}
+app <- iSEE(airway, initial = list(
+  PathwaysTable(PanelWidth = 4L),
+  VolcanoPlot(PanelWidth = 4L,
+    RowSelectionSource = "PathwaysTable1", ColorBy = "Row selection"),
+  ComplexHeatmapPlot(PanelWidth = 4L,
+    RowSelectionSource = "PathwaysTable1",
+    CustomRows = FALSE, ColumnData = "dex",
+    ClusterRows = TRUE, ClusterRowsDistance = "euclidean", AssayCenterRows = TRUE),
+  FgseaEnrichmentPlot(PanelWidth = 12L)
+))
+runApp(app, launch.browser = TRUE)
+```
+
+![Screenshot of iSEE app including extension panels and launched in a predefined initial configuration.](img/iSEEpathways_integration.png)
+
+<br/>
+
+One of the most notable limitations of this app is the delay in re-rendering panels when users select another pathway.
+Most of that time is actually spent in the `mapIds()` function, querying the `org.Hs.eg.db` object.
+This bottleneck can be circumnavigated by storing pathways as a regular `list()` in the `metadata()` slot of the `airway` object, and changing the mapping function to use that list instead of the `org.Hs.eg.db` object, as demonstrated in the section [Trading off memory usage for speed](https://isee.github.io/iSEEpathways/articles/integration.html#speed-mapping) of the `r BiocStyle::Biocpkg("iSEEpathways")` vignette.
+
+## Writing iSEE extensions
+
+### Overview
+
+In the next 10 minutes, we will:
+
+* Extend an existing panel class into a new panel class
+* Derive a new panel class from an existing panel
+
+### Philosophy
+
+`r BiocStyle::Biocpkg("iSEE")` panels are implemented as S4 classes that store the state of each panel in designated slots, and most of the functionality is implemented as S4 methods that describe various behavioural aspects of each panel class.
+
+As a result, new classes can be created simply by inheritance from existing classes, overwriting methods to produce a different behaviour.
+
+### Deriving an S4 class
+
+In this demo, let us create a new class called `ReducedDimensionHexPlot`, that inherits from the existing class `ReducedDimensionPlot()` (implemented in the `r BiocStyle::Biocpkg("iSEE")` package).
+
+The objective is to produce a panel that displays the same information as the original `ReducedDimensionPlot()` panel, but summarising data points into hexagonal bins.
+
+One major motivation for this functionality is that arbitrarily large data sets comprising many data points may be summarised into a modest number of hexagonal bins, providing a boost in speed when rendering the plot.
+
+However, this is not without caveats:
+
+* Summarising can take many forms (e.g., counting, averaging).
+* The ideal number of bins may be different for different data sets.
+
+To proceed, the new class needs at least one additional slot to store the number of hexagonal bins to create (i.e., a resolution for the plot).
+
+```{r}
+setClass("ReducedDimensionHexPlot", contains="ReducedDimensionPlot", slots=c(BinResolution = "numeric"))
+```
+
+To properly initialise instances of the new class, the new slot must be populated with a default value in the event that users do not specify a bin resolution.
+
+For this, we need to create a new method for the generic `initialize()` and the new class.
+We set the default resolution to 100 hexagonal bins along each axis.
+
+```{r}
+setMethod("initialize", "ReducedDimensionHexPlot", function(.Object, ...) {
+  args <- list(...)
+  
+  args <- .emptyDefault(args, "BinResolution", 20)
+  
+  do.call(callNextMethod, c(list(.Object), args))
+})
+```
+
+### Creating a constructor function
+
+It is best practice to give users a function to create objects a particular class.
+Traditionally, the function is named identically to the class.
+
+In this example, the function passes all its arguments to the `new()` function.
+This is standard practice in `r BiocStyle::Biocpkg("iSEE")`, where the arguments for constructor functions are typically the values of the various slots that describe the initial state of the panel.
+
+```{r}
+ReducedDimensionHexPlot <- function(...) {
+  new("ReducedDimensionHexPlot", ...)
+}
+```
+
+At this point, we can already demonstrate that we have a functional new panel class... that is a carbon copy of the parent class it inherits from!
+
+```{r, message=FALSE, warning=FALSE, eval=FALSE}
+app <- iSEE(sce, initial = list(
+  ReducedDimensionHexPlot(PanelWidth = 6L),
+  ReducedDimensionPlot(PanelWidth = 6L)
+))
+runApp(app, launch.browser = TRUE)
+```
+
+![Screenshot of iSEE app including a parent ReducedDimensionPlot and a ReducedDimensionHexPlot extension.](img/iSEEhex_clone.png)
+
+<br/>
+
+How can we even tell which is which?!
+
+### Changing the public panel name
+
+The generic `.fullName()` declares the label shown in the interface, at the top of each panel.
+
+Let us create a method for the new class, that gives it a different name, highlighting the hexagonal binning in the plot.
+
+```{r}
+setMethod(".fullName", "ReducedDimensionHexPlot", function(x) "Hexagonal reduced dimension plot")
+```
+
+Let's launch the app to see the effect
+
+```{r, message=FALSE, warning=FALSE, eval=FALSE}
+app <- iSEE(sce, initial = list(
+  ReducedDimensionHexPlot(PanelWidth = 6L),
+  ReducedDimensionPlot(PanelWidth = 6L)
+))
+runApp(app, launch.browser = TRUE)
+```
+
+![Screenshot of iSEE app including a parent ReducedDimensionPlot and a ReducedDimensionHexPlot extension after changing the full name of the child panel.](img/iSEEhex_fullName.png)
+
+<br/>
+
+### Changing the background panel colour
+
+Similarly, the generic `.panelColor()` declares the background colour of the panel header (as well as the colour of brushes for compatible panels).
+
+Let us create a method for the new class, that gives it a different colour.
+
+```{r}
+setMethod(".panelColor", "ReducedDimensionHexPlot", function(x) "#991717")
+```
+
+Let's launch the app to see the effect
+
+```{r, message=FALSE, warning=FALSE, eval=FALSE}
+app <- iSEE(sce, initial = list(
+  ReducedDimensionHexPlot(PanelWidth = 6L),
+  ReducedDimensionPlot(PanelWidth = 6L)
+))
+runApp(app, launch.browser = TRUE)
+```
+
+![Screenshot of iSEE app including a parent ReducedDimensionPlot and a ReducedDimensionHexPlot extension after changing the background colour of the child panel.](img/iSEEhex_color.png)
+
+<br/>
+
+### Altering the user interface
+
+At this point, there is still no component in the user interface to control the resolution value store in the new slot.
+
+A number of S4 methods control the interface elements displayed in the various groups of parameters located under each panel.
+
+Here, we are discussing a parameter that will control the *size* of bins.
+Moreover, we are about to replace data points by hexagonal bins, meaning that the visual parameters controlling the size of data points are about to become useless.
+
+Thus, the generic `.defineVisualSizeInterface()` is the natural choice to use for replacing the size parameters of the parent `ReducedDimensionHexPlot()` class by a new HTML element that displays a numeric input allowing users to change the hexagonal bin resolution.
+
+```{r}
+setMethod(".defineVisualSizeInterface", "ReducedDimensionHexPlot", function(x) {
+  plot_name <- .getEncodedName(x)
+  
+  tagList(
+    .numericInput.iSEE(x, "BinResolution", label="Bin resolution:",
+                       min=1, value=x[["BinResolution"]], step = 1)
+  )
+})
+```
+
+```{r, message=FALSE, warning=FALSE, eval=FALSE}
+app <- iSEE(sce, initial = list(
+  ReducedDimensionHexPlot(PanelWidth = 6L, VisualBoxOpen = TRUE, VisualChoices = "Size"),
+  ReducedDimensionPlot(PanelWidth = 6L, VisualBoxOpen = TRUE, VisualChoices = "Size")
+))
+runApp(app, launch.browser = TRUE)
+```
+
+![Screenshot of iSEE app including a parent ReducedDimensionPlot and a ReducedDimensionHexPlot extension after replacing the size parameter interface in the child panel.](img/iSEEhex_input.png)
+
+<br/>
+
+### Altering the panel output
+
+Time for the most exciting and challenging task: making the panel produce a different type of plot!
+
+To this end, the generic `.generateDotPlot()` is key.
+Given a panel state, axis labels, and an environment that contains the `SummarizedExperiment()` object and possibly other relevant values such as incoming selections, 
+
+```{r}
+setMethod(".generateDotPlot", "ReducedDimensionHexPlot", function(x, labels, envir) {
+  plot_cmds <- list()
+  plot_cmds[["ggplot"]] <- "ggplot() +"
+  color_lab <- "Count"
+  new_aes <- .buildAes()
+  plot_cmds[["hex"]] <- sprintf(
+    "ggplot2::geom_hex(%s, bins = %i, plot.data) +",
+    new_aes,
+    as.integer(x[["BinResolution"]])
+  )
+  plot_cmds[["theme_base"]] <- "theme_bw()"
+  
+  list(plot=.textEval(plot_cmds, envir), commands=plot_cmds)
+})
+```
+
+```{r, message=FALSE, warning=FALSE, eval=FALSE}
+app <- iSEE(sce, initial = list(
+  ReducedDimensionHexPlot(PanelWidth = 6L, VisualBoxOpen = TRUE, VisualChoices = "Size"),
+  ReducedDimensionPlot(PanelWidth = 6L, VisualBoxOpen = TRUE, VisualChoices = "Size")
+))
+runApp(app, launch.browser = TRUE)
+```
+
+![Screenshot of iSEE app including a parent ReducedDimensionPlot and a ReducedDimensionHexPlot extension after replacing the internal plotting code in the child panel.](img/iSEEhex_binned.png)
+
+<br/>
+
+### Adding reactivity
+
+At this point, if users change the bin resolution using the newly added interface element, they will notice that nothing seems to happen.
+
+That is because we have not yet added a Shiny observer responding to this particular event.
+
+The `.createObservers()` generic is invoked to create observers for all the instances of each panel class added to the user interface.
+
+The `.createProtectedParameterObservers()` function provides a convenient way to create observers responding to events that change the data being plotted and potentially break active multiple seletions, if any.
+This function automatically ensures that any change of value in the interface element is updated in the panel state and triggers re-rendering of the panel plot.
+
+```{r}
+setMethod(".createObservers", "ReducedDimensionHexPlot", function(x, se, input, session, pObjects, rObjects) {
+    callNextMethod()
+
+    plot_name <- .getEncodedName(x)
+
+    .createProtectedParameterObservers(plot_name,
+        fields=c("BinResolution"),
+        input=input, pObjects=pObjects, rObjects=rObjects)
+
+    invisible(NULL)
+})
+```
+
+With the new observer in place, we can launch the app one more time, to toy with the bin resolution and watch the panel plot being re-rendered each time.
+
+```{r, message=FALSE, warning=FALSE, eval=FALSE}
+app <- iSEE(sce, initial = list(
+  ReducedDimensionHexPlot(PanelWidth = 6L, VisualBoxOpen = TRUE, VisualChoices = "Size"),
+  ReducedDimensionPlot(PanelWidth = 6L)
+))
+runApp(app, launch.browser = TRUE)
+```
+
+![Screenshot of iSEE app including a parent ReducedDimensionPlot and a ReducedDimensionHexPlot extension after adding an observer in the child panel and using the value of the new interface element.](img/iSEE_observer.png)
+
+<br/>
+
+### Further work
+
+At this point, there are many more aspects of the plotting behaviour that we should test and adjust, making sure that all the choices of parameters presented to end users are sensible, and that all combinations of parameters are handled without error.
+
+However, that work represents many hours of careful testing and implementation that is far beyond the scope of this short package demo.
+
+Adventurous souls may be interested in a more mature implementation of the `ReducedDimensionHexPlot()` panel class, implemented in the `r BiocStyle::Biocpkg("iSEEhex")` package.
+Source code can be found on GitHub on [this page](https://github.com/iSEE/iSEEhex/blob/main/R/ReducedDimensionHexPlot.R).
+
+### Additional resources
+
+The book [Extending iSEE](https://isee.github.io/iSEE-book/) is the original effort from developers to provide guidance for writing `r BiocStyle::Biocpkg("iSEE")` extensions using example use cases for illustration.
+
+The more recent [iSEETheBook](https://isee.github.io/iSEETheBook/) launched a new effort to provide a comprehensive view of the ecosystem for all three major groups of users:
+
+* End users interacting with the graphical user interface in their web browser.
+* Developers of scripted web-applications using `r BiocStyle::Biocpkg("iSEE")` to showcase data sets.
+* Developers of extensions contributing new functionality and packages to the `r BiocStyle::Biocpkg("iSEE")` ecosystem.
+
+The [iSEE website](https://isee.github.io/) is the place to watch for links to additional resources.
+
+## Session info
+
+```{r}
+sessioninfo::session_info()
+```
+
+## Timings
+
+Wallclock time spent generating the vignette.
+
+```{r reproduce2, echo=FALSE}
+## Processing time in seconds
+totalTime <- diff(c(startTime, Sys.time()))
+round(totalTime, digits = 3)
+```

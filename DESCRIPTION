@@ -1,0 +1,60 @@
+Package: iSEEtheTeam
+Title: Package demo for EuroBioC2024
+Version: 1.0.0
+Authors@R: 
+    c(person(given = "Kevin",
+             family = "Rue-Albrecht",
+             role = "aut",
+             email = "kevinrue67@gmail.com",
+             comment = c(ORCID = "0000-0003-3899-3872")),
+     person(given = "Federico",
+             family = "Marini",
+             role = c("aut", "cre"),
+             email = "marinif@uni-mainz.de",
+             comment = c(ORCID = "0000-0003-3252-7758")),
+      person(given = "Charlotte",
+             family = "Soneson",
+             role = "aut",
+             email = "charlottesoneson@gmail.com",
+             comment = c(ORCID = "0000-0003-3833-2169"))
+      )
+Description: This package provides the environment and materials for the
+    package demo at the European Bioconductor Meeting 2024.
+    The environment includes the iSEE package and all its extensions
+    developed under the iSEE organisation.
+    The materials provide a brief overview of the core package functionality,
+    and a walkthrough of the development of an example extension package.
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Depends: 
+    Biobase
+Imports:
+    iSEE,
+    iSEEde,
+    iSEEhex,
+    iSEEhub,
+    iSEEindex,
+    iSEEpathways,
+    iSEEu,
+    shiny,
+    shinyWidgets
+Suggests:
+    airway,
+    BiocStyle,
+    DESeq2,
+    fgsea,
+    knitr,
+    org.Hs.eg.db,
+    pkgdown,
+    rmarkdown,
+    scRNAseq,
+    scater,
+    scuttle,
+    sessioninfo
+URL: https://isee.github.io/iSEEDemoEuroBioC2024/
+BugReports: https://github.com/iSEE/iSEEDemoEuroBioC2024/issues/new/choose
+VignetteBuilder: knitr
+DockerImage: ghcr.io/isee/iseedemoeurobioc2024:latest
