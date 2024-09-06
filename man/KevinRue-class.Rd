@@ -8,6 +8,7 @@
 \alias{.fullName,KevinRue-method}
 \alias{.defineOutput,KevinRue-method}
 \alias{.renderOutput,KevinRue-method}
+\alias{.defineInterface,KevinRue-method}
 \title{Kevin Rue}
 \description{
 Kevin Rue

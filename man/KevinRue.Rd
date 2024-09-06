@@ -20,5 +20,5 @@ iSEE(se, initial = list(
   FedericoMarini(PanelWidth=3L, PanelHeight=400L),
   CharlotteSoneson(PanelWidth=3L, PanelHeight=400L),
   AaronLun(PanelWidth=3L, PanelHeight=400L)
-))
+), appTitle = "iSEE the team")
 }

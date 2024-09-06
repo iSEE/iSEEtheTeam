@@ -1,7 +1,9 @@
 .photoFile <- "PhotoFile"
+.affiliationBoxOpen <- "AffiliationBoxOpen"
 
 collated <- character(0)
 collated[.photoFile] <- "character"
+collated[.affiliationBoxOpen] <- "logical"
 
 #' @importClassesFrom iSEE Panel
 #' @export
@@ -40,6 +42,7 @@ setMethod("initialize", "AaronLun", function(.Object, ...) {
     args <- list(...)
     
     args <- .emptyDefault(args, .photoFile, system.file(package = "iSEEtheTeam", "images", "aaron-lun.png"))
+    args <- .emptyDefault(args, .affiliationBoxOpen, FALSE)
 
     do.call(callNextMethod, c(list(.Object), args))
 })
@@ -95,4 +98,21 @@ setMethod(".renderOutput", "AaronLun", function(x, se, output, pObjects, rObject
     # nocov end
 
     callNextMethod()
+})
+
+#' @export
+setMethod(".defineInterface", "AaronLun", function(x, se, select_info) {
+    out <- callNextMethod()
+    plot_name <- .getEncodedName(x)
+    this_box <- collapseBox(
+        id=paste0(plot_name, "_", .affiliationBoxOpen),
+        title="Affiliation",
+        open=slot(x, .affiliationBoxOpen),
+        p(
+            "Computational Sciences, Genentech Inc, 1 DNA Way, South San Francisco, CA 94080, USA"
+        )
+    )
+    list(
+        this_box
+    )
 })

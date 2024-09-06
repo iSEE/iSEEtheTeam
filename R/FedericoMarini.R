@@ -1,7 +1,9 @@
 .photoFile <- "PhotoFile"
+.affiliationBoxOpen <- "AffiliationBoxOpen"
 
 collated <- character(0)
 collated[.photoFile] <- "character"
+collated[.affiliationBoxOpen] <- "logical"
 
 #' @importClassesFrom iSEE Panel
 #' @export
@@ -40,6 +42,7 @@ setMethod("initialize", "FedericoMarini", function(.Object, ...) {
     args <- list(...)
     
     args <- .emptyDefault(args, .photoFile, system.file(package = "iSEEtheTeam", "images", "federico-marini.png"))
+    args <- .emptyDefault(args, .affiliationBoxOpen, FALSE)
 
     do.call(callNextMethod, c(list(.Object), args))
 })
@@ -95,4 +98,21 @@ setMethod(".renderOutput", "FedericoMarini", function(x, se, output, pObjects, r
     # nocov end
 
     callNextMethod()
+})
+
+#' @export
+setMethod(".defineInterface", "FedericoMarini", function(x, se, select_info) {
+    out <- callNextMethod()
+    plot_name <- .getEncodedName(x)
+    this_box <- collapseBox(
+        id=paste0(plot_name, "_", .affiliationBoxOpen),
+        title="Affiliation",
+        open=slot(x, .affiliationBoxOpen),
+        p(
+            "Center for Thrombosis and Hemostasis (CTH), University Medical Center of the Johannes Gutenberg University Mainz, Langenbeckstr. 1, 55131, Mainz, Germany."
+        )
+    )
+    list(
+        this_box
+    )
 })
